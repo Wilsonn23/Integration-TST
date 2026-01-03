@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MoView | Movie Review</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #0a0a0a; }
+        
+        .glass-panel {
+            background: rgba(15, 15, 15, 0.9);
+            backdrop-filter: blur(20px);
+            border-left: 1px solid rgba(220, 38, 38, 0.2);
+        }
+
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #dc2626; border-radius: 10px; }
+        
+        .movie-card { transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); border: 1px solid rgba(255,255,255,0.05); }
+        .movie-card:hover { transform: scale(1.05); border-color: #dc2626; box-shadow: 0 10px 30px -10px rgba(220, 38, 38, 0.5); }
+        .active-movie { border: 2px solid #dc2626 !important; }
+
+        .btn-red {
+            background: #dc2626;
+            color: white;
+            transition: all 0.3s;
+        }
+        .btn-red:hover { background: #b91c1c; transform: translateY(-2px); box-shadow: 0 5px 15px rgba(220, 38, 38, 0.4); }
+    </style>
+</head>
+<body class="text-white h-screen flex flex-col overflow-hidden">
+
+    <nav class="h-16 flex items-center px-8 border-b border-white/5 bg-[#0f0f0f] z-50">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-white rounded-lg flex items-center justify-center shadow-lg group">
+                <span class="text-red-600 font-black text-xl italic tracking-tighter">MV</span>
+            </div>
+            <div class="flex flex-col">
+                <h1 class="text-xl font-black tracking-tight text-white leading-none uppercase">Mo<span class="text-red-600">View</span></h1>
+                <span class="text-[9px] text-gray-400 font-bold tracking-[0.2em] uppercase italic">Movie Review</span>
+            </div>
+        </div>
+    </nav>
+
+    <div class="flex flex-1 overflow-hidden">
+        
+        <main class="flex-1 overflow-y-auto p-8 bg-[#0a0a0a]">
+            <div class="max-w-7xl mx-auto">
+                <header class="mb-10">
+                    <h2 class="text-4xl font-extrabold text-white tracking-tight">Katalog <span class="text-red-600">Film</span></h2>
+                    <p class="text-gray-500 mt-2 font-medium">Klik poster untuk bergabung dalam ruang obrolan.</p>
+                </header>
+
+                <div id="movie-grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-8">
+                    <div class="h-80 bg-white/5 rounded-2xl animate-pulse"></div>
+                    <div class="h-80 bg-white/5 rounded-2xl animate-pulse"></div>
+                    <div class="h-80 bg-white/5 rounded-2xl animate-pulse"></div>
+                </div>
+            </div>
+        </main>
+
+        <aside class="w-[400px] glass-panel flex flex-col shadow-2xl">
+            <div class="p-6 border-b border-red-600/20 bg-gradient-to-b from-red-600/5 to-transparent">
+                <div id="chat-header-info" class="flex items-center gap-4">
+                    <div id="active-poster" class="w-14 h-20 bg-white/5 rounded-lg shadow-xl hidden bg-cover bg-center border border-white/10"></div>
+                    <div>
+                        <h3 id="current-title" class="font-extrabold text-white text-lg leading-tight">Ruang Diskusi</h3>
+                        <p id="chat-count" class="text-[10px] text-red-500 font-bold uppercase tracking-widest mt-1 italic">Live Community</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="chat-content" class="flex-1 overflow-y-auto p-6 space-y-6">
+                <div class="text-center mt-20 opacity-40">
+                    <div class="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4 border border-white/10">
+                        <span class="text-white text-xl font-bold italic">MV</span>
+                    </div>
+                    <p class="text-xs text-gray-400 font-semibold px-12 uppercase tracking-tighter">Pilih film untuk melihat diskusi</p>
+                </div>
+            </div>
+
+            <div id="input-container" class="p-6 bg-black border-t border-red-600/20 hidden">
+                <form id="chat-form" class="flex items-center gap-3">
+                    <input type="text" id="chat-input" 
+                           class="flex-1 bg-white/5 border border-white/10 rounded-xl py-4 px-5 text-sm focus:outline-none focus:border-red-600 transition-all text-white placeholder:text-gray-600 shadow-inner"
+                           placeholder="Ketik pesan...">
+                    <button type="submit" class="btn-red p-4 rounded-xl shadow-lg active:scale-90">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
+                    </button>
+                </form>
+            </div>
+        </aside>
+    </div>
+
+    <script>
+        const API = 'https://bebasdah.theokaitou.my.id';
+        let activeMovie = null;
+        let refreshInterval = null;
+
+        async function fetchMovies() {
+            try {
+                const res = await fetch(`${API}/movies`);
+                const movies = await res.json();
+                const grid = document.getElementById('movie-grid');
+                grid.innerHTML = movies.map(m => `
+                    <div onclick="selectMovie(this, ${m.id}, '${m.title || m.name}', '${m.poster_path}')" 
+                         class="movie-card group relative bg-[#151515] rounded-2xl overflow-hidden cursor-pointer shadow-xl">
+                        <div class="aspect-[2/3] overflow-hidden relative">
+                            <img src="${m.poster_path}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700">
+                            <div class="absolute inset-0 bg-gradient-to-t from-red-900/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                        </div>
+                        <div class="p-4 border-t border-white/5">
+                            <h4 class="text-xs font-bold text-white truncate group-hover:text-red-500 transition-colors">${m.title || m.name}</h4>
+                            <div class="flex items-center justify-between mt-2">
+                                <span class="text-[10px] text-gray-500 font-bold">${m.release_date ? m.release_date.split('-')[0] : 'N/A'}</span>
+                                <span class="text-[10px] font-black text-white px-2 py-0.5 bg-red-600 rounded">★ ${m.vote_average.toFixed(1)}</span>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (err) {}
+        }
+
+        async function selectMovie(el, id, title, poster) {
+            document.querySelectorAll('.movie-card').forEach(c => c.classList.remove('active-movie'));
+            el.classList.add('active-movie');
+
+            activeMovie = { id, title };
+            document.getElementById('current-title').innerText = title;
+            document.getElementById('active-poster').style.backgroundImage = `url(${poster})`;
+            document.getElementById('active-poster').classList.remove('hidden');
+            document.getElementById('input-container').classList.remove('hidden');
+
+            fetchChats(id);
+            if (refreshInterval) clearInterval(refreshInterval);
+            refreshInterval = setInterval(() => fetchChats(id), 3000);
+        }
+
+        async function fetchChats(id) {
+            try {
+                const res = await fetch(`${API}/chat/${id}`);
+                const chats = await res.json();
+                const container = document.getElementById('chat-content');
+                document.getElementById('chat-count').innerText = `${chats.length} Pesan`;
+
+                if (chats.length === 0) {
+                    container.innerHTML = `<div class="text-center mt-20 text-gray-600 text-[10px] font-black uppercase tracking-[0.2em]">Belum ada obrolan</div>`;
+                    return;
+                }
+
+                container.innerHTML = chats.map(c => `
+                    <div class="flex flex-col gap-2">
+                        <div class="flex items-center gap-2">
+                            <span class="text-[10px] font-black text-red-600 uppercase tracking-tighter">${c.username}</span>
+                            <span class="text-[8px] text-gray-700 ml-auto">${new Date(c.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                        </div>
+                        <div class="bg-white/5 border border-white/5 rounded-xl rounded-tl-none p-4 text-sm text-gray-300 leading-relaxed shadow-sm">
+                            ${c.chat}
+                        </div>
+                    </div>
+                `).join('');
+                container.scrollTop = container.scrollHeight;
+            } catch (e) {}
+        }
+
+        document.getElementById('chat-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const input = document.getElementById('chat-input');
+            if (!input.value.trim() || !activeMovie) return;
+
+            try {
+                await fetch(`${API}/chat`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ movie_id: activeMovie.id, user_id: 1, chat: input.value })
+                });
+                input.value = '';
+                fetchChats(activeMovie.id);
+            } catch (e) {}
+        });
+
+        fetchMovies();
+    </script>
+</body>
+</html>
